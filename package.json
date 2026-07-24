@@ -1,0 +1,22 @@
+{
+  "name": "admin-management-bot",
+  "version": "1.0.0",
+  "description": "بوت إدارة شامل: نقاط تفاعل، مهام يومية، تكتات، إجازات",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "mongoose": "^8.5.1",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3",
+    "moment-timezone": "^0.5.45",
+    "uuid": "^9.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
