@@ -79,7 +79,14 @@ async function handleCreateTicket(interaction) {
 
   const existing = await Ticket.findOne({ openerId: interaction.user.id, status: { $ne: 'closed' } });
   if (existing) {
-    return interaction.editReply({ content: `⚠️ لديك تذكرة مفتوحة بالفعل: <#${existing.channelId}>\nلازم تُغلق قبل ما تفتح تذكرة جديدة.` });
+    await interaction.editReply({ content: `⚠️ لديك تذكرة مفتوحة بالفعل: <#${existing.channelId}>\nلازم تُغلق قبل ما تفتح تذكرة جديدة.` });
+    try {
+      const allTypes = await TicketType.find({});
+      const usedKeys = interaction.message.components[0].components[0].options.map(o => o.value);
+      const ordered = usedKeys.map(k => allTypes.find(t => t.key === k)).filter(Boolean);
+      await interaction.message.edit({ components: [buildPanelRow(ordered)] });
+    } catch (e) { console.error('فشل إعادة رسم بانل التذاكر:', e); }
+    return;
   }
 
   const ticketType = await TicketType.findOne({ key: typeKey });
