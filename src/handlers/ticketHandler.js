@@ -135,6 +135,16 @@ const pingAdmin = ticketType.pingRoleId ? `<@&${ticketType.pingRoleId}> ` : (con
   sendTicketLog(guild, `📩 تذكرة جديدة **#${num}** (${ticketType.label}) فتحها <@${interaction.user.id}> — ${channel}`);
 
   await interaction.editReply({ content: `✅ تم فتح تذكرتك: ${channel}` });
+
+  // ⭐ إعادة رسم القائمة بالبانل الأصلي عشان تختفي علامة الاختيار (✓)
+  try {
+    const allTypes = await TicketType.find({});
+    const usedKeys = interaction.message.components[0].components[0].options.map(o => o.value);
+    const ordered = usedKeys.map(k => allTypes.find(t => t.key === k)).filter(Boolean);
+    await interaction.message.edit({ components: [buildPanelRow(ordered)] });
+  } catch (e) {
+    console.error('فشل إعادة رسم بانل التذاكر:', e);
+  }
 }
 
 // ============ الاستلام (محمي ذريًا من التعارض) ============
