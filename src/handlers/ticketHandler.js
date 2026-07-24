@@ -97,9 +97,10 @@ async function handleCreateTicket(interaction) {
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
     { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
   ];
-  for (const roleId of [config.ADMIN_ROLE_ID, config.SENIOR_ROLE_ID, config.OWNER_ROLE_ID].filter(Boolean)) {
+const rolesForOverwrite = [config.ADMIN_ROLE_ID, config.SENIOR_ROLE_ID, config.OWNER_ROLE_ID, ticketType.pingRoleId].filter(Boolean);
+for (const roleId of [...new Set(rolesForOverwrite)]) {
     overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
-  }
+}
 
   const channel = await guild.channels.create({
     name: `${ticketType.key}-${num}`,
