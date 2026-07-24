@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const User = require('../database/models/User');
 const GuildConfig = require('../database/models/GuildConfig');
@@ -16,37 +17,54 @@ function start(client) {
     console.log('⏰ بداية اليوم الجديد - تشغيل الرول اليومي...');
     const guild = client.guilds.cache.get(config.GUILD_ID);
     if (!guild) return;
-
     const guildConfig = await GuildConfig.getSingleton();
     const newDifficulty = guildConfig.nextDifficulty || config.DEFAULT_DIFFICULTY;
-    guildConfig.currentDifficulty = newDifficulty;
-    guildConfig.nextDifficulty = null;
-    await guildConfig.save();
-
     await guild.members.fetch();
     const adminMembers = guild.members.cache.filter(m => isAdmin(m));
 
+    // ⭐ تقرير الإنجاز اليومي قبل تجدد المهام
+    const completedList = [];
+    const notCompletedList = [];
+    for (const [id] of adminMembers) {
+      const userDoc = await User.findOne({ discordId: id });
+      if (userDoc && userDoc.dayCompletedToday) completedList.push(id);
+      else notCompletedList.push(id);
+    }
+    if (guildConfig.reportChannelId) {
+      const reportChannel = guild.channels.cache.get(guildConfig.reportChannelId);
+      if (reportChannel) {
+        const embed = new EmbedBuilder()
+          .setTitle('📊 تقرير إنجاز المهام اليومية')
+          .addFields(
+            { name: `✅ أنجزوا (${completedList.length})`, value: completedList.length ? completedList.map(id => `<@${id}>`).join('\n') : 'لا أحد' },
+            { name: `❌ لم ينجزوا (${notCompletedList.length})`, value: notCompletedList.length ? notCompletedList.map(id => `<@${id}>`).join('\n') : 'لا أحد' }
+          )
+          .setColor(0x8a63f2)
+          .setTimestamp();
+        await reportChannel.send({ embeds: [embed] }).catch((e) => console.error('فشل إرسال تقرير الإنجاز اليومي:', e));
+      }
+    }
+
+    // ==== الآن تجدد المهام فعليًا ====
+    guildConfig.currentDifficulty = newDifficulty;
+    guildConfig.nextDifficulty = null;
+    await guildConfig.save();
     const today = todayKey();
     let completedCount = 0;
-
     for (const [id] of adminMembers) {
       let userDoc = await User.findOne({ discordId: id });
       if (!userDoc) userDoc = new User({ discordId: id });
-
       if (userDoc.dayCompletedToday) {
         userDoc.days += 1;
         completedCount += 1;
       }
-
       userDoc.lastTaskDate = today;
       userDoc.dayCompletedToday = false;
       userDoc.currentTasks = buildTasksForDifficulty(newDifficulty);
       await userDoc.save();
     }
-
     sendAdminLog(guild, `🌅 بدأ يوم جديد. تم احتساب يوم لـ **${completedCount}** إداري. مستوى مهام اليوم: **${newDifficulty}**`);
   }, { timezone: config.TIMEZONE });
-
   // ==== تصفير التوب الأسبوعي كل سبت ====
   cron.schedule('0 0 * * 6', async () => {
     console.log('🔄 تصفير التوب الأسبوعي...');
