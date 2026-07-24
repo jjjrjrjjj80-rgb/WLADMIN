@@ -125,7 +125,7 @@ for (const roleId of [...new Set(rolesForOverwrite)]) {
     .setFooter({ text: `فتحها: ${interaction.user.tag}` })
     .setTimestamp();
 
-  const pingAdmin = config.ADMIN_ROLE_ID ? `<@&${config.ADMIN_ROLE_ID}> ` : '';
+const pingAdmin = ticketType.pingRoleId ? `<@&${ticketType.pingRoleId}> ` : (config.ADMIN_ROLE_ID ? `<@&${config.ADMIN_ROLE_ID}> ` : '');
   await channel.send({
     content: `${pingAdmin}<@${interaction.user.id}>`,
     embeds: [embed],
