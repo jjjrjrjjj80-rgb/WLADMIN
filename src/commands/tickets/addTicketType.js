@@ -8,7 +8,7 @@ module.exports = {
     .setDescription('إنشاء نوع تذكرة جديد (مثلا: دعم فني، رقابة، تفعيل)')
     .addStringOption(opt => opt.setName('مفتاح').setDescription('مفتاح قصير بالإنجليزي بدون مسافات مثل support').setRequired(true))
     .addStringOption(opt => opt.setName('الاسم').setDescription('الاسم الظاهر للأعضاء').setRequired(true))
-    .addChannelOption(opt => opt.setName('الكاتيجوري').setDescription('الكاتيجوري اللي تنفتح فيه التذاكر').addChannelTypes(ChannelType.GuildCategory).setRequired(true))
+   .addChannelOption(opt => opt.setName('الكاتيجوري').setDescription('الكاتيجوري اللي تنفتح فيه التذاكر').addChannelTypes(ChannelType.GuildCategory).setRequired(true))
     .addStringOption(opt => opt.setName('ايموجي').setDescription('إيموجي يمثل هذا النوع (اختياري)')),
   async execute(interaction) {
     if (!isOwnerOrSenior(interaction.member)) {
@@ -17,6 +17,7 @@ module.exports = {
     const key = interaction.options.getString('مفتاح').trim().toLowerCase().replace(/\s+/g, '-');
     const label = interaction.options.getString('الاسم');
     const category = interaction.options.getChannel('الكاتيجوري');
+    const pingRole = interaction.options.getRole('رتبة_المنشن'); // ⭐ جديد
     const emoji = interaction.options.getString('ايموجي') || '🎫';
 
     const existing = await TicketType.findOne({ key });
@@ -24,7 +25,7 @@ module.exports = {
       return interaction.reply({ content: `❌ يوجد نوع تذكرة بنفس المفتاح مسبقًا: **${existing.label}**`, ephemeral: true });
     }
 
-    await TicketType.create({ key, label, categoryId: category.id, emoji });
+await TicketType.create({ key, label, categoryId: category.id, emoji, pingRoleId: pingRole ? pingRole.id : null }); // ⭐ عدّلت هذا السطر
     await interaction.reply({ content: `✅ تم إنشاء نوع التذكرة **${label}** (المفتاح: \`${key}\`) وربطه بكاتيجوري ${category.name}`, ephemeral: true });
   }
 };
