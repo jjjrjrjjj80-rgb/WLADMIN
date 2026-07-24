@@ -1,7 +1,7 @@
 const { start } = require('../cron/scheduler');
 
 module.exports = {
-  name: 'ready',
+  name: 'clientReady',
   once: true,
   execute(client) {
     console.log(`✅ تم تسجيل الدخول باسم ${client.user.tag}`);

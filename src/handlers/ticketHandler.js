@@ -288,6 +288,13 @@ function openCloseReasonModal(interaction) {
   return interaction.showModal(modal);
 }
 
+// يضمن أن قيمة الحقل نص صالح غير فارغ ولا يتجاوز 1024 حرف (شرط إمبيدات ديسكورد)
+function safeFieldValue(value, fallback = 'غير محدد') {
+  const str = (value === undefined || value === null) ? '' : String(value).trim();
+  const finalStr = str.length > 0 ? str : fallback;
+  return finalStr.slice(0, 1024);
+}
+
 async function closeTicketChannel(channel, guild, closedById, reason) {
   const ticket = await Ticket.findOneAndUpdate(
     { channelId: channel.id },
@@ -300,23 +307,24 @@ async function closeTicketChannel(channel, guild, closedById, reason) {
 
   const closedByText = closedById ? `<@${closedById}>` : 'النظام (إغلاق تلقائي)';
   const claimedByText = ticket.claimedBy ? `<@${ticket.claimedBy}>` : 'لم تُستلم';
+  const openedAtTs = ticket.createdAt ? Math.floor(ticket.createdAt.getTime() / 1000) : Math.floor(Date.now() / 1000);
 
   const logEmbed = new EmbedBuilder()
     .setTitle(`🔒 إغلاق التذكرة #${ticket.ticketNumber}`)
     .addFields(
-      { name: 'النوع', value: ticket.typeLabel || ticket.typeKey, inline: true },
-      { name: 'فتحها', value: `<@${ticket.openerId}>`, inline: true },
-      { name: 'استلمها', value: claimedByText, inline: true },
-      { name: 'أغلقها', value: closedByText, inline: true },
-      { name: 'وقت الفتح', value: `<t:${Math.floor(ticket.createdAt.getTime() / 1000)}:f>`, inline: true },
-      { name: 'سبب الإغلاق', value: reason || 'غير محدد' }
+      { name: 'النوع', value: safeFieldValue(ticket.typeLabel || ticket.typeKey), inline: true },
+      { name: 'فتحها', value: safeFieldValue(`<@${ticket.openerId}>`), inline: true },
+      { name: 'استلمها', value: safeFieldValue(claimedByText), inline: true },
+      { name: 'أغلقها', value: safeFieldValue(closedByText), inline: true },
+      { name: 'وقت الفتح', value: safeFieldValue(`<t:${openedAtTs}:f>`), inline: true },
+      { name: 'سبب الإغلاق', value: safeFieldValue(reason) }
     )
     .setColor(0xe74c3c)
     .setTimestamp();
 
   const logChannel = guild.channels.cache.get(config.TICKET_LOG_CHANNEL_ID);
   if (logChannel) {
-    await logChannel.send({ embeds: [logEmbed], files: transcriptFile ? [transcriptFile] : [] }).catch(() => {});
+    await logChannel.send({ embeds: [logEmbed], files: transcriptFile ? [transcriptFile] : [] }).catch((e) => console.error('فشل إرسال لوق إغلاق التذكرة:', e));
   }
 
   const opener = await guild.members.fetch(ticket.openerId).catch(() => null);
@@ -324,10 +332,10 @@ async function closeTicketChannel(channel, guild, closedById, reason) {
     const dmEmbed = new EmbedBuilder()
       .setTitle(`🔒 تم إغلاق تذكرتك #${ticket.ticketNumber}`)
       .addFields(
-        { name: 'استلمها', value: claimedByText, inline: true },
-        { name: 'أغلقها', value: closedByText, inline: true },
-        { name: 'وقت الفتح', value: `<t:${Math.floor(ticket.createdAt.getTime() / 1000)}:f>`, inline: true },
-        { name: 'سبب الإغلاق', value: reason || 'غير محدد' }
+        { name: 'استلمها', value: safeFieldValue(claimedByText), inline: true },
+        { name: 'أغلقها', value: safeFieldValue(closedByText), inline: true },
+        { name: 'وقت الفتح', value: safeFieldValue(`<t:${openedAtTs}:f>`), inline: true },
+        { name: 'سبب الإغلاق', value: safeFieldValue(reason) }
       )
       .setColor(0xe74c3c);
     opener.send({ embeds: [dmEmbed] }).catch(() => {});
