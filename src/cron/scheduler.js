@@ -2,15 +2,16 @@ const cron = require('node-cron');
 const config = require('../config');
 const User = require('../database/models/User');
 const GuildConfig = require('../database/models/GuildConfig');
+const Ticket = require('../database/models/Ticket');
 const { buildTasksForDifficulty } = require('../utils/taskEngine');
 const { todayKey } = require('../utils/dateUtils');
 const { isAdmin } = require('../utils/permissions');
 const { sendAdminLog } = require('../utils/logger');
 const { finalizeLeave } = require('../handlers/leaveHandler');
+const { closeTicketChannel } = require('../handlers/ticketHandler');
 
 function start(client) {
-  // ==== الرول اليومي: يفحص إنجاز الأمس، يحسب الأيام، ويولد مهام اليوم الجديد ====
-  // يشتغل يوميًا الساعة 00:00 بتوقيت السعودية
+  // ==== الرول اليومي ====
   cron.schedule('0 0 * * *', async () => {
     console.log('⏰ بداية اليوم الجديد - تشغيل الرول اليومي...');
     const guild = client.guilds.cache.get(config.GUILD_ID);
@@ -32,13 +33,11 @@ function start(client) {
       let userDoc = await User.findOne({ discordId: id });
       if (!userDoc) userDoc = new User({ discordId: id });
 
-      // إذا أنجز مهام اليوم السابق يُحسب له يوم
       if (userDoc.dayCompletedToday) {
         userDoc.days += 1;
         completedCount += 1;
       }
 
-      // توليد مهام اليوم الجديد
       userDoc.lastTaskDate = today;
       userDoc.dayCompletedToday = false;
       userDoc.currentTasks = buildTasksForDifficulty(newDifficulty);
@@ -48,7 +47,7 @@ function start(client) {
     sendAdminLog(guild, `🌅 بدأ يوم جديد. تم احتساب يوم لـ **${completedCount}** إداري. مستوى مهام اليوم: **${newDifficulty}**`);
   }, { timezone: config.TIMEZONE });
 
-  // ==== تصفير التوب الأسبوعي كل يوم سبت ====
+  // ==== تصفير التوب الأسبوعي كل سبت ====
   cron.schedule('0 0 * * 6', async () => {
     console.log('🔄 تصفير التوب الأسبوعي...');
     await User.updateMany({}, { $set: { weeklyXP: 0 } });
@@ -65,9 +64,28 @@ function start(client) {
     const now = Date.now();
 
     for (const u of onLeaveUsers) {
-      const endsAt = u.currentLeave.startedAt.getTime() + u.currentLeave.durationHours * 3600000;
+      const endsAt = u.currentLeave.startedAt.getTime() + u.currentLeave.durationDays * 86400000;
       if (now >= endsAt) {
         await finalizeLeave(guild, u.discordId, { endType: 'completed' });
+      }
+    }
+  }, { timezone: config.TIMEZONE });
+
+  // ==== إغلاق تلقائي للتذاكر بدون رد بعد "استدعاء العضو" ====
+  cron.schedule('* * * * *', async () => {
+    const guild = client.guilds.cache.get(config.GUILD_ID);
+    if (!guild) return;
+
+    const pending = await Ticket.find({ calledAt: { $ne: null }, status: { $ne: 'closed' } });
+    const now = Date.now();
+    const timeoutMs = config.TICKET_CALL_TIMEOUT_MINUTES * 60 * 1000;
+
+    for (const ticket of pending) {
+      if (now - ticket.calledAt.getTime() >= timeoutMs) {
+        const channel = guild.channels.cache.get(ticket.channelId);
+        if (channel) {
+          await closeTicketChannel(channel, guild, null, 'إغلاق تلقائي - لا يوجد رد من العضو خلال المهلة المحددة');
+        }
       }
     }
   }, { timezone: config.TIMEZONE });

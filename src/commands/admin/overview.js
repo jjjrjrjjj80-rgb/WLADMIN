@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../database/models/User');
+const TicketType = require('../../database/models/TicketType');
 const { isOwnerOrSenior } = require('../../utils/permissions');
 
 module.exports = {
@@ -16,10 +17,18 @@ module.exports = {
     const userDoc = await User.findOne({ discordId: target.id });
 
     if (!userDoc) {
-      return interaction.reply({ content: 'لا يوجد بيانات مسجلة لهذا الشخص بعد.', ephemeral: true });
+      return interaction.reply({ content: 'لا يوجد بيانات مسجلة لهذا الشخص بعد.' });
     }
 
     const tasksStatus = userDoc.currentTasks.map(t => `${t.completed ? '✅' : '🔲'} ${t.label} (${t.progress}/${t.target})`).join('\n') || 'لا توجد مهام مولّدة بعد';
+
+    const types = await TicketType.find();
+    let ticketsTotal = 0;
+    const ticketsLines = types.map(t => {
+      const c = userDoc.ticketsClaimed?.get ? (userDoc.ticketsClaimed.get(t.key) || 0) : 0;
+      ticketsTotal += c;
+      return `${t.emoji} ${t.label}: ${c}`;
+    }).join(' | ') || 'لا يوجد';
 
     const embed = new EmbedBuilder()
       .setTitle(`📄 نبذة عن ${target.username}`)
@@ -28,14 +37,15 @@ module.exports = {
         { name: 'نقاط الأسبوع', value: `${userDoc.weeklyXP}`, inline: true },
         { name: 'نقاط كلية', value: `${userDoc.allTimeXP}`, inline: true },
         { name: 'حالة اليوم', value: userDoc.dayCompletedToday ? '✅ أنجز' : '❌ لم ينجز بعد', inline: true },
-        { name: 'رصيد الإجازة', value: `${userDoc.leaveHoursRemaining} ساعة`, inline: true },
+        { name: 'رصيد الإجازة', value: `${userDoc.leaveDaysRemaining} يوم`, inline: true },
         { name: 'حالة الإجازة', value: userDoc.onLeave ? '🟡 في إجازة الآن' : '🟢 متاح', inline: true },
-        { name: 'مهام اليوم', value: tasksStatus }
+        { name: 'مهام اليوم', value: tasksStatus },
+        { name: `التذاكر المستلمة (المجموع: ${ticketsTotal})`, value: ticketsLines }
       )
-      .setColor(0x5865f2)
+      .setColor(0x8a63f2)
       .setThumbnail(target.displayAvatarURL())
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed] });
   }
 };

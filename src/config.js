@@ -9,61 +9,79 @@ module.exports = {
 
   // ==== الرتب ====
   OWNER_ROLE_ID: process.env.OWNER_ROLE_ID,
-  SENIOR_ROLE_ID: process.env.SENIOR_ROLE_ID, // الرتبة العليا (تقدر تعتمد الاجازات وتستخدم أوامر الإدارة)
-  ADMIN_ROLE_ID: process.env.ADMIN_ROLE_ID,   // رتبة الإداري نفسه (المهام / النقاط / التكتات)
-  LEAVE_ROLE_ID: process.env.LEAVE_ROLE_ID,   // الرتبة التي تُعطى أثناء الإجازة
+  SENIOR_ROLE_ID: process.env.SENIOR_ROLE_ID,
+  ADMIN_ROLE_ID: process.env.ADMIN_ROLE_ID,
+  LEAVE_ROLE_ID: process.env.LEAVE_ROLE_ID,
 
   // ==== القنوات ====
   GENERAL_CHAT_CHANNEL_ID: process.env.GENERAL_CHAT_CHANNEL_ID,
   ADMIN_LOG_CHANNEL_ID: process.env.ADMIN_LOG_CHANNEL_ID,
   LEAVE_LOG_CHANNEL_ID: process.env.LEAVE_LOG_CHANNEL_ID,
   TICKET_LOG_CHANNEL_ID: process.env.TICKET_LOG_CHANNEL_ID,
-  TICKET_PANEL_CHANNEL_ID: process.env.TICKET_PANEL_CHANNEL_ID,
-  TICKET_CATEGORY_ID: process.env.TICKET_CATEGORY_ID,
 
   TIMEZONE: 'Asia/Riyadh',
 
-  // ==== نظام نقاط التفاعل (XP) ====
   XP: {
-    PER_MESSAGE: 1,             // نقطة لكل رسالة محسوبة
-    COOLDOWN_SECONDS: 20,       // لازم تمر 20 ثانية بين كل رسالة تُحسب لنفس الشخص (حماية من السبام)
-    MIN_MESSAGE_LENGTH: 2,      // أقل عدد أحرف حتى تُحسب الرسالة
-    COUNTED_CHANNEL_IDS: [],    // اتركها فاضية = تُحسب من أي شات، أو حط IDs شاتات محددة
-    ONLY_COUNT_ADMIN_ROLE: true // لا يدخل في التوب إلا من يحمل رتبة الإداري
+    PER_MESSAGE: 1,
+    COOLDOWN_SECONDS: 20,
+    MIN_MESSAGE_LENGTH: 2,
+    COUNTED_CHANNEL_IDS: [],
+    ONLY_COUNT_ADMIN_ROLE: true
   },
 
-  // ==== نظام الإجازات ====
   LEAVE: {
-    MONTHLY_HOURS: 72,          // رصيد كل إداري كل شهر
-    RESET_DAY_OF_MONTH: 1       // يوم تصفير الرصيد الشهري
+    MONTHLY_DAYS: 3,
+    SWAPPABLE_ROLE_IDS: (process.env.LEAVE_SWAPPABLE_ROLE_IDS || '')
+      .split(',').map(s => s.trim()).filter(Boolean)
   },
 
-  // ==== قوالب المهام اليومية حسب الصعوبة ====
-  // كل مهمة: type: 'xp' | 'tickets' | 'phrase'
+  TICKET_CALL_TIMEOUT_MINUTES: 10,
+
   TASK_TEMPLATES: {
     easy: [
-      { type: 'xp', target: 1500, label: 'اجمع 1500 نقطة تفاعل بالشات العام' },
-      { type: 'tickets', target: 8, label: 'استلم 8 تكتات' },
-      { type: 'phrase', phrase: 'سبحان الله', target: 5, cooldownMinutes: 15, label: 'اكتب "سبحان الله" 5 مرات بالشات العام (مرة كل 15 دقيقة)' }
+      { type: 'xp', target: 600, label: 'اجمع 600 نقطة تفاعل بالشات العام' },
+      { type: 'tickets', target: 10, label: 'استلم 10 تكتات' },
+      { type: 'phrase', phrase: 'لا اله الا الله', target: 7, cooldownMinutes: 15, label: 'اكتب "لا اله الا الله" 7 مرات بالشات العام (مرة كل 15 دقيقة)' }
     ],
     medium: [
-      { type: 'xp', target: 3000, label: 'اجمع 3000 نقطة تفاعل بالشات العام' },
+      { type: 'xp', target: 1200, label: 'اجمع 1200 نقطة تفاعل بالشات العام' },
       { type: 'tickets', target: 15, label: 'استلم 15 تكت' },
-      { type: 'phrase', phrase: 'سبحان الله', target: 8, cooldownMinutes: 15, label: 'اكتب "سبحان الله" 8 مرات بالشات العام (مرة كل 15 دقيقة)' }
+      { type: 'phrase', phrase: 'سبحان الله', target: 10, cooldownMinutes: 15, label: 'اكتب "سبحان الله" 10 مرات بالشات العام (مرة كل 15 دقيقة)' }
     ],
     hard: [
-      { type: 'xp', target: 5000, label: 'اجمع 5000 نقطة تفاعل بالشات العام' },
-      { type: 'tickets', target: 25, label: 'استلم 25 تكت' },
-      { type: 'phrase', phrase: 'سبحان الله', target: 12, cooldownMinutes: 15, label: 'اكتب "سبحان الله" 12 مرة بالشات العام (مرة كل 15 دقيقة)' }
+      { type: 'xp', target: 2000, label: 'اجمع 2000 نقطة تفاعل بالشات العام' },
+      { type: 'tickets', target: 20, label: 'استلم 20 تكت' },
+      { type: 'phrase', phrase: 'سبحان الله', target: 15, cooldownMinutes: 15, label: 'اكتب "سبحان الله" 15 مرة بالشات العام (مرة كل 15 دقيقة)' }
     ]
   },
   DEFAULT_DIFFICULTY: 'medium',
 
-  // ==== أنواع التذاكر في البانل (بالأرقام) ====
-  TICKET_TYPES: [
-    { id: '1', label: 'دعم عام', emoji: '🎫' },
-    { id: '2', label: 'شكوى', emoji: '⚠️' },
-    { id: '3', label: 'استفسار مالي', emoji: '💰' },
-    { id: '4', label: 'تبليغ عن إداري', emoji: '🚨' }
-  ]
+  LEAVE_MESSAGES: {
+    approved: (durationDays) =>
+      `تمت مراجعة طلب الإجازة ونفيدك بأنه تمت الموافقة عليها\n\n` +
+      `مدة الإجازة: ${durationDays} يوم\n\n` +
+      `نتمنى لكم إجازة سعيدة وننتظر عودتكم بالسلامة وفي حال اردت كسر الاجازة ماعليك سوى كتابة أمر كسر الإجازة\n\n` +
+      `الإجازة معتمدة. ✅`,
+    rejected: (reason) =>
+      `تمت مراجعة طلب الإجازة ونفيدك بأنه لم تتم الموافقة على الطلب في الوقت الحالي\n\n` +
+      `سبب الرفض: ${reason}\n\n` +
+      `نشكرك تفهمك ونتمنى لك التوفيق`,
+    brokenByAdmin: (reason) =>
+      `مرحبًا،\n\n` +
+      `نحيطك علمًا بأنه تم كسر الإجازة الخاصة بك، ويُرجى العودة لمباشرة مهامك ابتداءً من الآن\n\n` +
+      `سبب كسر الإجازة: ${reason}\n\n` +
+      `نأمل منك التواجد في أقرب وقت\n\n` +
+      `شكرًا لتعاونك`,
+    completedNaturally:
+      `مرحبًا،\n\n` +
+      `نحيطك علمًا بأن مدة الإجازة الخاصة بك قد انتهت\n\n` +
+      `يرجى العودة لمباشرة مهامك واستئناف تفاعلك الإداري.\n\n` +
+      `شكرًا لتعاونك، ونتمنى لك التوفيق.`
+  },
+
+  TICKET_CALL_DM:
+    `مرحبًا،\n\n` +
+    `لديك تذكرة دعم مفتوحة ولم يصلنا أي رد منك حتى الآن.\n\n` +
+    `يرجى الرد على التذكرة خلال (10 دقائق)، وفي حال عدم وجود أي استجابة خلال هذه الفترة، سيتم إغلاق التذكرة تلقائيًا.\n\n` +
+    `شكرًا لتعاونك.`
 };

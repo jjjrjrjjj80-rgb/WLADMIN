@@ -26,7 +26,7 @@ module.exports = {
     });
 
     await interaction.reply({
-      content: `✅ تم كسر إجازة <@${target.id}>. الساعات المستخدمة فعليًا: **${result.actualHoursUsed}**، الرصيد المتبقي: **${result.remaining}**`,
+      content: `✅ تم كسر إجازة <@${target.id}>. الأيام المستخدمة فعليًا: **${result.actualDaysUsed}**، الرصيد المتبقي: **${result.remaining}**`,
       ephemeral: true
     });
   }

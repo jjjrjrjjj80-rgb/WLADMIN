@@ -12,12 +12,12 @@ module.exports = {
         return command.execute(interaction);
       }
 
-      // ==== اختيار نوع التذكرة (فتح تذكرة جديدة) ====
+      // ==== اختيار نوع التذكرة ====
       if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_create_select') {
         return ticketHandler.handleCreateTicket(interaction);
       }
 
-      // ==== أزرار التذاكر ====
+      // ==== الأزرار ====
       if (interaction.isButton()) {
         const id = interaction.customId;
 
@@ -26,16 +26,19 @@ module.exports = {
         if (id === 'ticket_rename') return ticketHandler.openRenameModal(interaction);
         if (id === 'ticket_add') return ticketHandler.openAddMemberModal(interaction);
         if (id === 'ticket_remove') return ticketHandler.openRemoveMemberModal(interaction);
-        if (id === 'ticket_close') return ticketHandler.handleClose(interaction);
+
+        if (id === 'ticket_close') return ticketHandler.handleCloseButtonClick(interaction);
+        if (id === 'ticket_close_confirm') return ticketHandler.openCloseReasonModal(interaction);
+        if (id === 'ticket_close_cancel') return ticketHandler.handleCloseCancel(interaction);
 
         if (id.startsWith('leave_approve_')) return leaveHandler.approveLeave(interaction, id.replace('leave_approve_', ''));
-        if (id.startsWith('leave_reject_')) return leaveHandler.rejectLeave(interaction, id.replace('leave_reject_', ''));
+        if (id.startsWith('leave_reject_')) return leaveHandler.openRejectReasonModal(interaction, id.replace('leave_reject_', ''));
 
         if (id === 'leave_break_confirm_self') {
           const result = await leaveHandler.finalizeLeave(interaction.guild, interaction.user.id, { endType: 'broken', brokenById: interaction.user.id });
           if (!result) return interaction.update({ content: '❌ لا توجد إجازة نشطة.', embeds: [], components: [] });
           return interaction.update({
-            content: `✅ تم كسر إجازتك. الساعات المستخدمة: **${result.actualHoursUsed}**، رصيدك المتبقي: **${result.remaining}** ساعة`,
+            content: `✅ تم كسر إجازتك. الأيام المستخدمة: **${result.actualDaysUsed}**، رصيدك المتبقي: **${result.remaining}** يوم`,
             embeds: [], components: []
           });
         }
@@ -47,6 +50,13 @@ module.exports = {
         if (id === 'ticket_rename_modal') return ticketHandler.handleRenameSubmit(interaction);
         if (id === 'ticket_add_modal') return ticketHandler.handleAddSubmit(interaction);
         if (id === 'ticket_remove_modal') return ticketHandler.handleRemoveSubmit(interaction);
+        if (id === 'ticket_close_reason_modal') return ticketHandler.handleCloseReasonSubmit(interaction);
+
+        if (id.startsWith('leave_reject_reason_modal_')) {
+          const requestId = id.replace('leave_reject_reason_modal_', '');
+          const reason = interaction.fields.getTextInputValue('reason');
+          return leaveHandler.rejectLeaveWithReason(interaction, requestId, reason);
+        }
       }
     } catch (err) {
       console.error('خطأ في التعامل مع التفاعل:', err);

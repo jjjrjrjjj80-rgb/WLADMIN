@@ -1,48 +1,62 @@
+const path = require('path');
 const {
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, PermissionFlagsBits, ModalBuilder,
-  TextInputBuilder, TextInputStyle
+  TextInputBuilder, TextInputStyle, AttachmentBuilder
 } = require('discord.js');
 const config = require('../config');
 const Ticket = require('../database/models/Ticket');
+const TicketType = require('../database/models/TicketType');
 const GuildConfig = require('../database/models/GuildConfig');
 const User = require('../database/models/User');
 const { isAdmin } = require('../utils/permissions');
 const { sendTicketLog } = require('../utils/logger');
 const { ensureTodayTasks, checkAndMarkCompletion } = require('../utils/taskEngine');
+const { generateTranscript } = require('../utils/transcript');
 
-// ============ بناء البانل الرئيسي ============
-function buildPanelEmbed() {
+const LOGO_PATH = path.join(__dirname, '..', '..', 'assets', 'logo.png');
+
+// ============ بناء البانل ============
+function buildPanelEmbed(ticketTypes) {
   return new EmbedBuilder()
     .setTitle('🎫 مركز الدعم — نظام التذاكر')
     .setDescription(
       '**اختر نوع التذكرة من القائمة أدناه** ليتم فتح روم خاص بك تتواصل فيه مع الإدارة.\n\n' +
-      config.TICKET_TYPES.map(t => `${t.emoji} **${t.id}.** ${t.label}`).join('\n') +
-      '\n\n> ⏱️ سيتم الرد عليك من قبل أقرب إداري متاح.'
+      ticketTypes.map(t => `${t.emoji} **${t.label}**`).join('\n') +
+      '\n\n> ⏱️ سيتم الرد عليك من قبل أقرب إداري متاح.\n' +
+      '> ⚠️ يمكنك فتح تذكرة واحدة فقط في نفس الوقت.'
     )
-    .setColor(0x5865f2)
-    .setImage('https://i.imgur.com/6YOgi9c.png') // ضع رابط بانر السيرفر هنا
+    .setColor(0x8a63f2)
+    .setThumbnail('attachment://logo.png')
+    .setImage('attachment://logo.png')
     .setFooter({ text: 'نظام التذاكر الرسمي' })
     .setTimestamp();
 }
 
-function buildPanelRow() {
+function buildPanelRow(ticketTypes) {
   const menu = new StringSelectMenuBuilder()
     .setCustomId('ticket_create_select')
     .setPlaceholder('📩 اختر نوع التذكرة لفتحها')
-    .addOptions(config.TICKET_TYPES.map(t => ({
-      label: `${t.id}. ${t.label}`,
-      value: t.id,
+    .addOptions(ticketTypes.map(t => ({
+      label: t.label,
+      value: t.key,
       emoji: t.emoji
     })));
   return new ActionRowBuilder().addComponents(menu);
 }
 
-async function postPanel(channel) {
-  return channel.send({ embeds: [buildPanelEmbed()], components: [buildPanelRow()] });
+async function postPanel(channel, typeKeys) {
+  const ticketTypes = await TicketType.find({ key: { $in: typeKeys } });
+  if (ticketTypes.length === 0) {
+    throw new Error('لا توجد أنواع تذاكر مطابقة. أنشئها أولًا عبر /اضافة_نوع_تكت');
+  }
+  const ordered = typeKeys.map(k => ticketTypes.find(t => t.key === k)).filter(Boolean);
+
+  const attachment = new AttachmentBuilder(LOGO_PATH, { name: 'logo.png' });
+  return channel.send({ embeds: [buildPanelEmbed(ordered)], components: [buildPanelRow(ordered)], files: [attachment] });
 }
 
-// ============ إنشاء تذكرة جديدة ============
+// ============ أزرار التحكم داخل التذكرة ============
 function buildTicketControlRow(claimed) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ticket_claim').setLabel(claimed ? 'تم الاستلام' : 'استلام التذكرة')
@@ -58,10 +72,20 @@ function buildTicketControlRow(claimed) {
   return [row, row2];
 }
 
+// ============ إنشاء تذكرة جديدة ============
 async function handleCreateTicket(interaction) {
-  const typeId = interaction.values[0];
-  const ticketType = config.TICKET_TYPES.find(t => t.id === typeId);
+  const typeKey = interaction.values[0];
   await interaction.deferReply({ ephemeral: true });
+
+  const existing = await Ticket.findOne({ openerId: interaction.user.id, status: { $ne: 'closed' } });
+  if (existing) {
+    return interaction.editReply({ content: `⚠️ لديك تذكرة مفتوحة بالفعل: <#${existing.channelId}>\nلازم تُغلق قبل ما تفتح تذكرة جديدة.` });
+  }
+
+  const ticketType = await TicketType.findOne({ key: typeKey });
+  if (!ticketType) {
+    return interaction.editReply({ content: '❌ نوع التذكرة هذا لم يعد متاحًا، تواصل مع الإدارة.' });
+  }
 
   const guildConfig = await GuildConfig.getSingleton();
   guildConfig.ticketCounter += 1;
@@ -69,50 +93,56 @@ async function handleCreateTicket(interaction) {
   const num = guildConfig.ticketCounter;
 
   const guild = interaction.guild;
+  const overwrites = [
+    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
+  ];
+  for (const roleId of [config.ADMIN_ROLE_ID, config.SENIOR_ROLE_ID, config.OWNER_ROLE_ID].filter(Boolean)) {
+    overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+  }
+
   const channel = await guild.channels.create({
-    name: `تذكرة-${num}`,
-    parent: config.TICKET_CATEGORY_ID || null,
-    permissionOverwrites: [
-      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-      { id: config.ADMIN_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-      { id: config.SENIOR_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-      { id: config.OWNER_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
-    ]
+    name: `${ticketType.key}-${num}`,
+    parent: ticketType.categoryId || null,
+    permissionOverwrites: overwrites
   });
 
   await Ticket.create({
     channelId: channel.id,
     guildId: guild.id,
     ticketNumber: num,
-    ticketType: ticketType?.label || typeId,
+    typeKey: ticketType.key,
+    typeLabel: ticketType.label,
     openerId: interaction.user.id,
     memberIds: [interaction.user.id]
   });
 
   const embed = new EmbedBuilder()
-    .setTitle(`🎫 تذكرة #${num} — ${ticketType?.label || ''}`)
+    .setTitle(`🎫 تذكرة #${num} — ${ticketType.label}`)
     .setDescription(`مرحبًا <@${interaction.user.id}>، فريق الإدارة سيقوم بمساعدتك قريبًا.\nالرجاء وصف طلبك بالتفصيل.`)
-    .setColor(0x5865f2)
+    .setColor(0x8a63f2)
     .setFooter({ text: `فتحها: ${interaction.user.tag}` })
     .setTimestamp();
 
-  await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: buildTicketControlRow(false) });
+  const pingAdmin = config.ADMIN_ROLE_ID ? `<@&${config.ADMIN_ROLE_ID}> ` : '';
+  await channel.send({
+    content: `${pingAdmin}<@${interaction.user.id}>`,
+    embeds: [embed],
+    components: buildTicketControlRow(false)
+  });
 
-  sendTicketLog(guild, `📩 تذكرة جديدة **#${num}** (${ticketType?.label}) فتحها <@${interaction.user.id}> — ${channel}`);
+  sendTicketLog(guild, `📩 تذكرة جديدة **#${num}** (${ticketType.label}) فتحها <@${interaction.user.id}> — ${channel}`);
 
   await interaction.editReply({ content: `✅ تم فتح تذكرتك: ${channel}` });
 }
 
-// ============ الاستلام (محمي من التعارض/القلتش) ============
+// ============ الاستلام (محمي ذريًا من التعارض) ============
 async function handleClaim(interaction) {
   const member = interaction.member;
   if (!isAdmin(member)) {
     return interaction.reply({ content: '❌ هذا الزر مخصص للإدارة فقط.', ephemeral: true });
   }
 
-  // عملية ذرية واحدة على قاعدة البيانات: فقط أول طلب ينجح (claimedBy: null شرط)
-  // هذا يمنع أي تعارض حتى لو ضغط اثنين بنفس الميلي ثانية
   const ticket = await Ticket.findOneAndUpdate(
     { channelId: interaction.channel.id, claimedBy: null },
     { $set: { claimedBy: member.id, claimedAt: new Date(), status: 'claimed' } },
@@ -120,7 +150,6 @@ async function handleClaim(interaction) {
   );
 
   if (!ticket) {
-    // شخص ثاني سبقه بجزء من الثانية
     const existing = await Ticket.findOne({ channelId: interaction.channel.id });
     return interaction.reply({
       content: `⚠️ تم استلام هذه التذكرة مسبقًا من قبل <@${existing?.claimedBy}>.`,
@@ -128,27 +157,27 @@ async function handleClaim(interaction) {
     });
   }
 
-  // تحديث تقدم مهمة "استلام التكتات" لهذا الإداري فقط (أول مستلم)
-  let userDoc = await User.findOne({ discordId: member.id });
-  if (!userDoc) userDoc = new User({ discordId: member.id });
+  await User.updateOne(
+    { discordId: member.id },
+    { $inc: { [`ticketsClaimed.${ticket.typeKey}`]: 1 } },
+    { upsert: true }
+  );
 
+  let userDoc = await User.findOne({ discordId: member.id });
   const guildConfig = await GuildConfig.getSingleton();
   ensureTodayTasks(userDoc, guildConfig.currentDifficulty);
 
-  let justCompleted = false;
   for (const task of userDoc.currentTasks) {
     if (task.type === 'tickets' && !task.completed) {
       task.progress += 1;
       if (task.progress >= task.target) { task.progress = task.target; task.completed = true; }
     }
   }
-  const result = checkAndMarkCompletion(userDoc);
-  justCompleted = result.justCompleted;
+  const { justCompleted } = checkAndMarkCompletion(userDoc);
   await userDoc.save();
 
-  const row1 = buildTicketControlRow(true);
-  await interaction.update({ components: row1 });
-  await interaction.followUp({ content: `✅ تم استلام التذكرة بواسطة <@${member.id}>`, ephemeral: false });
+  await interaction.update({ components: buildTicketControlRow(true) });
+  await interaction.followUp({ content: `تم استلام التذكرة من قبل الإداري <@${member.id}> في خدمتك ⚒️` });
 
   sendTicketLog(interaction.guild, `✋ تم استلام التذكرة **#${ticket.ticketNumber}** بواسطة <@${member.id}>`);
 
@@ -157,12 +186,29 @@ async function handleClaim(interaction) {
   }
 }
 
-// ============ استدعاء العضو ============
+// ============ استدعاء العضو (بالخاص) ============
 async function handleCall(interaction) {
   if (!isAdmin(interaction.member)) return interaction.reply({ content: '❌ للإدارة فقط.', ephemeral: true });
   const ticket = await Ticket.findOne({ channelId: interaction.channel.id });
   if (!ticket) return interaction.reply({ content: 'تعذر إيجاد بيانات التذكرة.', ephemeral: true });
-  await interaction.reply({ content: `📣 <@${ticket.openerId}> الإدارة بحاجة لردك هنا.` });
+
+  const guild = interaction.guild;
+  const opener = await guild.members.fetch(ticket.openerId).catch(() => null);
+
+  let dmSent = true;
+  if (opener) {
+    await opener.send(config.TICKET_CALL_DM).catch(() => { dmSent = false; });
+  } else {
+    dmSent = false;
+  }
+
+  await Ticket.updateOne({ channelId: interaction.channel.id }, { $set: { calledAt: new Date() } });
+
+  await interaction.reply({
+    content: dmSent
+      ? `📣 تم إرسال تذكير بالخاص لـ <@${ticket.openerId}>. إذا ما رد خلال ${config.TICKET_CALL_TIMEOUT_MINUTES} دقائق ستُغلق التذكرة تلقائيًا.`
+      : `⚠️ ما قدرت أرسل رسالة خاصة لـ <@${ticket.openerId}> (خاصه مقفولة على الأرجح).`
+  });
 }
 
 // ============ المودالات: تغيير الاسم / إضافة / حذف عضو ============
@@ -220,21 +266,86 @@ async function handleRemoveSubmit(interaction) {
   await interaction.reply({ content: `➖ تمت إزالة <@${userId}> من التذكرة.` });
 }
 
-// ============ إغلاق التذكرة ============
-async function handleClose(interaction) {
-  if (!isAdmin(interaction.member)) return interaction.reply({ content: '❌ للإدارة فقط.', ephemeral: true });
+// ============ تدفق الإغلاق: زر -> تأكيد -> سبب -> تنفيذ ============
+async function handleCloseButtonClick(interaction) {
+  if (!isAdmin(interaction.member)) return interaction.reply({ content: '❌ إغلاق التذكرة مخصص للإدارة فقط.', ephemeral: true });
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('ticket_close_confirm').setLabel('نعم، إغلاق').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('ticket_close_cancel').setLabel('لا، تراجع').setStyle(ButtonStyle.Secondary)
+  );
+  await interaction.reply({ content: '⚠️ هل أنت متأكد أنك ستغلق التذكرة؟', components: [row] });
+}
+
+async function handleCloseCancel(interaction) {
+  await interaction.update({ content: '✅ تم التراجع عن إغلاق التذكرة.', components: [] });
+}
+
+function openCloseReasonModal(interaction) {
+  const modal = new ModalBuilder().setCustomId('ticket_close_reason_modal').setTitle('سبب إغلاق التذكرة');
+  const input = new TextInputBuilder().setCustomId('reason').setLabel('سبب الإغلاق').setStyle(TextInputStyle.Paragraph).setRequired(true);
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+  return interaction.showModal(modal);
+}
+
+async function closeTicketChannel(channel, guild, closedById, reason) {
   const ticket = await Ticket.findOneAndUpdate(
-    { channelId: interaction.channel.id },
-    { $set: { status: 'closed' } },
+    { channelId: channel.id },
+    { $set: { status: 'closed', closedBy: closedById, closeReason: reason, closedAt: new Date() } },
     { new: true }
   );
-  await interaction.reply({ content: '🔒 سيتم إغلاق التذكرة خلال 5 ثوانٍ...' });
-  sendTicketLog(interaction.guild, `🔒 تم إغلاق التذكرة **#${ticket?.ticketNumber}** بواسطة <@${interaction.member.id}>`);
-  setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+  if (!ticket) return;
+
+  const transcriptFile = await generateTranscript(channel).catch(() => null);
+
+  const closedByText = closedById ? `<@${closedById}>` : 'النظام (إغلاق تلقائي)';
+  const claimedByText = ticket.claimedBy ? `<@${ticket.claimedBy}>` : 'لم تُستلم';
+
+  const logEmbed = new EmbedBuilder()
+    .setTitle(`🔒 إغلاق التذكرة #${ticket.ticketNumber}`)
+    .addFields(
+      { name: 'النوع', value: ticket.typeLabel || ticket.typeKey, inline: true },
+      { name: 'فتحها', value: `<@${ticket.openerId}>`, inline: true },
+      { name: 'استلمها', value: claimedByText, inline: true },
+      { name: 'أغلقها', value: closedByText, inline: true },
+      { name: 'وقت الفتح', value: `<t:${Math.floor(ticket.createdAt.getTime() / 1000)}:f>`, inline: true },
+      { name: 'سبب الإغلاق', value: reason || 'غير محدد' }
+    )
+    .setColor(0xe74c3c)
+    .setTimestamp();
+
+  const logChannel = guild.channels.cache.get(config.TICKET_LOG_CHANNEL_ID);
+  if (logChannel) {
+    await logChannel.send({ embeds: [logEmbed], files: transcriptFile ? [transcriptFile] : [] }).catch(() => {});
+  }
+
+  const opener = await guild.members.fetch(ticket.openerId).catch(() => null);
+  if (opener) {
+    const dmEmbed = new EmbedBuilder()
+      .setTitle(`🔒 تم إغلاق تذكرتك #${ticket.ticketNumber}`)
+      .addFields(
+        { name: 'استلمها', value: claimedByText, inline: true },
+        { name: 'أغلقها', value: closedByText, inline: true },
+        { name: 'وقت الفتح', value: `<t:${Math.floor(ticket.createdAt.getTime() / 1000)}:f>`, inline: true },
+        { name: 'سبب الإغلاق', value: reason || 'غير محدد' }
+      )
+      .setColor(0xe74c3c);
+    opener.send({ embeds: [dmEmbed] }).catch(() => {});
+  }
+
+  setTimeout(() => channel.delete().catch(() => {}), 5000);
+}
+
+async function handleCloseReasonSubmit(interaction) {
+  const reason = interaction.fields.getTextInputValue('reason');
+  await interaction.reply({ content: '🔒 جاري إغلاق التذكرة...' });
+  await closeTicketChannel(interaction.channel, interaction.guild, interaction.member.id, reason);
 }
 
 module.exports = {
   postPanel, handleCreateTicket, handleClaim, handleCall,
   openRenameModal, openAddMemberModal, openRemoveMemberModal,
-  handleRenameSubmit, handleAddSubmit, handleRemoveSubmit, handleClose
+  handleRenameSubmit, handleAddSubmit, handleRemoveSubmit,
+  handleCloseButtonClick, handleCloseCancel, openCloseReasonModal, handleCloseReasonSubmit,
+  closeTicketChannel
 };

@@ -1,9 +1,9 @@
 const config = require('../config');
 const User = require('../database/models/User');
 const GuildConfig = require('../database/models/GuildConfig');
+const Ticket = require('../database/models/Ticket');
 const { isAdmin } = require('../utils/permissions');
 const { ensureTodayTasks, checkAndMarkCompletion } = require('../utils/taskEngine');
-const { now } = require('../utils/dateUtils');
 const { sendAdminLog } = require('../utils/logger');
 
 module.exports = {
@@ -12,12 +12,16 @@ module.exports = {
     if (message.author.bot) return;
     if (!message.guild) return;
 
-    // نحسب فقط من الرتبة الإدارية (حسب الإعداد)
+    // ==== إلغاء مؤقّت الإغلاق التلقائي إذا رد فاتح التذكرة بعد "استدعاء العضو" ====
+    const ticket = await Ticket.findOne({ channelId: message.channel.id, status: { $ne: 'closed' } });
+    if (ticket && ticket.calledAt && message.author.id === ticket.openerId) {
+      await Ticket.updateOne({ channelId: message.channel.id }, { $set: { calledAt: null } });
+    }
+
     const member = message.member;
     if (!member) return;
     if (config.XP.ONLY_COUNT_ADMIN_ROLE && !isAdmin(member)) return;
 
-    // إذا حددنا شاتات معينة للحساب
     if (config.XP.COUNTED_CHANNEL_IDS.length > 0 &&
         !config.XP.COUNTED_CHANNEL_IDS.includes(message.channel.id)) {
       return;
@@ -29,7 +33,6 @@ module.exports = {
     let userDoc = await User.findOne({ discordId: member.id });
     if (!userDoc) userDoc = new User({ discordId: member.id });
 
-    // ==== حماية من السبام: كولداون بين كل رسالة تُحسب ====
     const nowTime = Date.now();
     const lastTime = userDoc.lastMessageAt ? userDoc.lastMessageAt.getTime() : 0;
     const cooldownMs = config.XP.COOLDOWN_SECONDS * 1000;
@@ -41,7 +44,6 @@ module.exports = {
       userDoc.lastMessageAt = new Date();
     }
 
-    // ==== تحديث مهام اليوم (لو ما عنده مهام اليوم الحالي، ولّد له) ====
     const guildConfig = await GuildConfig.getSingleton();
     ensureTodayTasks(userDoc, guildConfig.currentDifficulty);
 

@@ -15,8 +15,8 @@ module.exports = {
     }
 
     const desc = onLeave.map(u => {
-      const endsAt = new Date(u.currentLeave.startedAt.getTime() + u.currentLeave.durationHours * 3600000);
-      return `<@${u.discordId}> — ${u.currentLeave.durationHours} ساعة — تنتهي <t:${Math.floor(endsAt.getTime() / 1000)}:R>`;
+      const endsAt = new Date(u.currentLeave.startedAt.getTime() + u.currentLeave.durationDays * 86400000);
+      return `<@${u.discordId}> — ${u.currentLeave.durationDays} يوم — تنتهي <t:${Math.floor(endsAt.getTime() / 1000)}:R>`;
     }).join('\n');
 
     const embed = new EmbedBuilder().setTitle('🟡 الإداريون في إجازة حاليًا').setDescription(desc).setColor(0xf1c40f);

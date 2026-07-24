@@ -9,17 +9,17 @@ module.exports = {
       return interaction.reply({ content: '❌ أنت لست في إجازة حاليًا.', ephemeral: true });
     }
 
-    const elapsedHours = Math.min(
-      userDoc.currentLeave.durationHours,
-      Math.round(((Date.now() - userDoc.currentLeave.startedAt.getTime()) / (1000 * 60 * 60)) * 100) / 100
+    const elapsedDays = Math.min(
+      userDoc.currentLeave.durationDays,
+      Math.round(((Date.now() - userDoc.currentLeave.startedAt.getTime()) / (1000 * 60 * 60 * 24)) * 100) / 100
     );
 
     const embed = new EmbedBuilder()
       .setTitle('⚠️ تأكيد كسر الإجازة')
       .setDescription(
-        `مدة إجازتك الأصلية: **${userDoc.currentLeave.durationHours}** ساعة\n` +
-        `الساعات المستخدمة فعليًا لحد الآن: **${elapsedHours}** ساعة\n` +
-        `سيتم خصم **${elapsedHours}** ساعة فقط من رصيدك، والباقي يبقى محفوظ.`
+        `مدة إجازتك الأصلية: **${userDoc.currentLeave.durationDays}** يوم\n` +
+        `الأيام المستخدمة فعليًا لحد الآن: **${elapsedDays}** يوم\n` +
+        `سيتم خصم **${elapsedDays}** يوم فقط من رصيدك، والباقي يبقى محفوظ.`
       )
       .setColor(0xf1c40f);
 

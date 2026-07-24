@@ -8,7 +8,7 @@ const TaskSchema = new mongoose.Schema({
   progress: { type: Number, default: 0 },
   phrase: String,
   cooldownMinutes: Number,
-  lastCountedAt: Date, // للمهام من نوع phrase (كولداون خاص بالمهمة)
+  lastCountedAt: Date,
   completed: { type: Boolean, default: false }
 }, { _id: false });
 
@@ -18,25 +18,28 @@ const UserSchema = new mongoose.Schema({
   // ==== نقاط التفاعل ====
   weeklyXP: { type: Number, default: 0 },
   allTimeXP: { type: Number, default: 0 },
-  lastMessageAt: { type: Date, default: null }, // آخر رسالة محسوبة (كولداون السبام)
+  lastMessageAt: { type: Date, default: null },
 
   // ==== الأيام والمهام ====
   days: { type: Number, default: 0 },
   dayCompletedToday: { type: Boolean, default: false },
-  lastTaskDate: { type: String, default: null }, // YYYY-MM-DD آخر يوم انولدت له مهام
+  lastTaskDate: { type: String, default: null },
   currentTasks: { type: [TaskSchema], default: [] },
 
-  // ==== الإجازات ====
-  leaveHoursRemaining: { type: Number, default: config.LEAVE.MONTHLY_HOURS },
-  lastLeaveMonthKey: { type: String, default: null }, // YYYY-MM آخر شهر تم تصفير الرصيد فيه
+  // ==== التذاكر المستلمة (حسب نوع التذكرة - مفتاح TicketType) ====
+  ticketsClaimed: { type: Map, of: Number, default: {} },
+
+  // ==== الإجازات (بالأيام) ====
+  leaveDaysRemaining: { type: Number, default: config.LEAVE.MONTHLY_DAYS },
+  lastLeaveMonthKey: { type: String, default: null },
   onLeave: { type: Boolean, default: false },
   currentLeave: {
     requestId: String,
-    durationHours: Number,
+    durationDays: Number,
     startedAt: Date,
     reason: String
   },
-  savedRolesForLeave: { type: [String], default: [] } // الرتب الإدارية المحفوظة وقت الإجازة عشان نرجعها
+  savedRolesForLeave: { type: [String], default: [] }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

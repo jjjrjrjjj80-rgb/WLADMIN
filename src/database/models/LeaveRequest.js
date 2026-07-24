@@ -5,7 +5,7 @@ const LeaveRequestSchema = new mongoose.Schema({
   requestId: { type: String, default: uuidv4, unique: true },
   userId: { type: String, required: true },
   reason: { type: String, required: true },
-  durationHours: { type: Number, required: true },
+  durationDays: { type: Number, required: true },
 
   status: {
     type: String,
@@ -15,9 +15,10 @@ const LeaveRequestSchema = new mongoose.Schema({
 
   requestedAt: { type: Date, default: Date.now },
   decidedBy: String,
+  rejectReason: String,
   startedAt: Date,
   endedAt: Date,
-  hoursUsed: { type: Number, default: 0 },
+  daysUsed: { type: Number, default: 0 },
   logMessageId: String
 }, { timestamps: true });
 
