@@ -29,7 +29,7 @@ function buildPanelEmbed(ticketTypes) {
     .setColor(0x8a63f2)
     .setThumbnail('attachment://logo.png')
     .setImage('attachment://logo.png')
-    .setFooter({ text: 'الدعم الفني الرسمي' })
+    .setFooter({ text: 'نظام التكتات الرسمي' })
     .setTimestamp();
 }
 
