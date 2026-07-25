@@ -19,7 +19,7 @@ const LOGO_PATH = path.join(__dirname, '..', '..', 'assets', 'logo.png');
 // ============ بناء البانل ============
 function buildPanelEmbed(ticketTypes) {
   return new EmbedBuilder()
-    .setTitle('🎫 مركز الدعم — نظام التذاكر')
+    .setTitle('🎫 مركز الدعم - ادارة السيرفر')
     .setDescription(
       '**اختر نوع التذكرة من القائمة أدناه** ليتم فتح روم خاص بك تتواصل فيه مع الإدارة.\n\n' +
       ticketTypes.map(t => `${t.emoji} **${t.label}**`).join('\n') +
@@ -29,7 +29,7 @@ function buildPanelEmbed(ticketTypes) {
     .setColor(0x8a63f2)
     .setThumbnail('attachment://logo.png')
     .setImage('attachment://logo.png')
-    .setFooter({ text: 'نظام التذاكر الرسمي' })
+    .setFooter({ text: 'الدعم الفني الرسمي' })
     .setTimestamp();
 }
 
@@ -228,6 +228,9 @@ async function handleCall(interaction) {
       ? `📣 تم إرسال تذكير بالخاص لـ <@${ticket.openerId}>. إذا ما رد خلال ${config.TICKET_CALL_TIMEOUT_MINUTES} دقائق ستُغلق التذكرة تلقائيًا.`
       : `⚠️ ما قدرت أرسل رسالة خاصة لـ <@${ticket.openerId}> (خاصه مقفولة على الأرجح).`
   });
+
+  // ⭐ لوق الاستدعاء - نعرف مين استدعى ومن أي تذكرة
+  sendTicketLog(guild, `📣 <@${interaction.member.id}> استدعى العضو <@${ticket.openerId}> بالتذكرة **#${ticket.ticketNumber}** ${dmSent ? '(وصلته رسالة خاصة)' : '(تعذر إرسال رسالة خاصة له)'}`);
 }
 
 // ============ المودالات: تغيير الاسم / إضافة / حذف عضو ============
