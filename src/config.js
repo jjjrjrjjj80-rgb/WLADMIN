@@ -25,7 +25,7 @@ module.exports = {
     PER_MESSAGE: 1,
     COOLDOWN_SECONDS: 20,
     MIN_MESSAGE_LENGTH: 2,
-    COUNTED_CHANNEL_IDS: [],
+    COUNTED_CHANNEL_IDS: [process.env.GENERAL_CHAT_CHANNEL_ID],
     ONLY_COUNT_ADMIN_ROLE: true
   },
 
