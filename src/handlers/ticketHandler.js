@@ -104,10 +104,11 @@ async function handleCreateTicket(interaction) {
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
     { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
   ];
-const rolesForOverwrite = [config.ADMIN_ROLE_ID, config.SENIOR_ROLE_ID, config.OWNER_ROLE_ID, ticketType.pingRoleId].filter(Boolean);
-for (const roleId of [...new Set(rolesForOverwrite)]) {
+  // الأونر والرتب العليا يشوفون كل التذاكر دائمًا كإشراف عام + رتبة المنشن المحددة لهذا النوع بس
+  const rolesForOverwrite = [config.OWNER_ROLE_ID, config.SENIOR_ROLE_ID, ticketType.pingRoleId].filter(Boolean);
+  for (const roleId of [...new Set(rolesForOverwrite)]) {
     overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
-}
+  }
 
   const channel = await guild.channels.create({
     name: `${ticketType.key}-${num}`,
@@ -132,7 +133,7 @@ for (const roleId of [...new Set(rolesForOverwrite)]) {
     .setFooter({ text: `فتحها: ${interaction.user.tag}` })
     .setTimestamp();
 
-const pingAdmin = ticketType.pingRoleId ? `<@&${ticketType.pingRoleId}> ` : (config.ADMIN_ROLE_ID ? `<@&${config.ADMIN_ROLE_ID}> ` : '');
+  const pingAdmin = ticketType.pingRoleId ? `<@&${ticketType.pingRoleId}> ` : (config.ADMIN_ROLE_ID ? `<@&${config.ADMIN_ROLE_ID}> ` : '');
   await channel.send({
     content: `${pingAdmin}<@${interaction.user.id}>`,
     embeds: [embed],
