@@ -30,7 +30,7 @@ module.exports = {
   },
 
   LEAVE: {
-    MONTHLY_DAYS: 3,
+    MONTHLY_DAYS: 7,
     SWAPPABLE_ROLE_IDS: (process.env.LEAVE_SWAPPABLE_ROLE_IDS || '')
       .split(',').map(s => s.trim()).filter(Boolean)
   },
