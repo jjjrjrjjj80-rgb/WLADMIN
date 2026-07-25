@@ -76,9 +76,12 @@ async function submitLeaveRequest(interaction, durationDays, reason) {
 
 // ============ قبول الطلب ============
 async function approveLeave(interaction, requestId) {
+  // ⭐ نأكد الزر فورًا قبل أي عملية بطيئة (سحب رتب، حفظ قاعدة بيانات...) عشان ديسكورد ما يطلع خطأ "لم يستجب بالوقت"
+  await interaction.deferUpdate();
+
   const request = await LeaveRequest.findOne({ requestId });
   if (!request || request.status !== 'pending') {
-    return interaction.reply({ content: '⚠️ هذا الطلب غير موجود أو تم البت فيه مسبقًا.', ephemeral: true });
+    return interaction.followUp({ content: '⚠️ هذا الطلب غير موجود أو تم البت فيه مسبقًا.', ephemeral: true });
   }
 
   const guild = interaction.guild;
@@ -114,7 +117,7 @@ async function approveLeave(interaction, requestId) {
   const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
     .setColor(0x2ecc71)
     .setFooter({ text: `✅ تمت الموافقة بواسطة ${interaction.user.tag}` });
-  await interaction.update({ embeds: [updatedEmbed], components: [] });
+  await interaction.editReply({ embeds: [updatedEmbed], components: [] });
 
   member?.send(config.LEAVE_MESSAGES.approved(request.durationDays)).catch(() => {});
   sendLeaveLog(guild, { content: `✅ تمت الموافقة على إجازة <@${request.userId}> (${request.durationDays} يوم) بواسطة <@${interaction.user.id}>` });
@@ -129,9 +132,12 @@ function openRejectReasonModal(interaction, requestId) {
 }
 
 async function rejectLeaveWithReason(interaction, requestId, reason) {
+  // ⭐ نأكد الاستلام فورًا قبل أي عملية بطيئة (حفظ، إرسال رسائل...)
+  await interaction.deferReply({ ephemeral: true });
+
   const request = await LeaveRequest.findOne({ requestId });
   if (!request || request.status !== 'pending') {
-    return interaction.reply({ content: '⚠️ هذا الطلب غير موجود أو تم البت فيه مسبقًا.', ephemeral: true });
+    return interaction.editReply({ content: '⚠️ هذا الطلب غير موجود أو تم البت فيه مسبقًا.' });
   }
 
   request.status = 'rejected';
@@ -151,7 +157,7 @@ async function rejectLeaveWithReason(interaction, requestId, reason) {
   member?.send(config.LEAVE_MESSAGES.rejected(reason)).catch(() => {});
   sendLeaveLog(interaction.guild, { content: `❌ تم رفض طلب إجازة <@${request.userId}> بواسطة <@${interaction.user.id}>\n**السبب:** ${reason}` });
 
-  await interaction.reply({ content: '✅ تم رفض الطلب وإبلاغ الإداري.', ephemeral: true });
+  await interaction.editReply({ content: '✅ تم رفض الطلب وإبلاغ الإداري.' });
 }
 
 /**
