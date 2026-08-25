@@ -39,22 +39,22 @@ module.exports = {
 
   TASK_TEMPLATES: {
     easy: [
-      { type: 'xp', target: 600, label: 'اجمع 600 نقطة تفاعل بالشات العام' },
-      { type: 'tickets', target: 10, label: 'استلم 10 تكتات' },
+      { type: 'xp', target: 600, label: 'اجمع 100 نقطة تفاعل بالشات العام' },
+      { type: 'tickets', target: 10, label: 'استلم 7 تكتات' },
       { type: 'phrase', phrase: 'لا اله الا الله', target: 7, cooldownMinutes: 15, label: 'اكتب "لا اله الا الله" 7 مرات بالشات العام (مرة كل 15 دقيقة)' }
     ],
     medium: [
-      { type: 'xp', target: 1200, label: 'اجمع 1200 نقطة تفاعل بالشات العام' },
-      { type: 'tickets', target: 15, label: 'استلم 15 تكت' },
+      { type: 'xp', target: 1200, label: 'اجمع 250 نقطة تفاعل بالشات العام' },
+      { type: 'tickets', target: 15, label: 'استلم 13 تكت' },
       { type: 'phrase', phrase: 'سبحان الله', target: 10, cooldownMinutes: 15, label: 'اكتب "سبحان الله" 10 مرات بالشات العام (مرة كل 15 دقيقة)' }
     ],
     hard: [
-      { type: 'xp', target: 2000, label: 'اجمع 2000 نقطة تفاعل بالشات العام' },
-      { type: 'tickets', target: 20, label: 'استلم 20 تكت' },
+      { type: 'xp', target: 2000, label: 'اجمع 350 نقطة تفاعل بالشات العام' },
+      { type: 'tickets', target: 20, label: 'استلم 17 تكت' },
       { type: 'phrase', phrase: 'سبحان الله', target: 15, cooldownMinutes: 15, label: 'اكتب "سبحان الله" 15 مرة بالشات العام (مرة كل 15 دقيقة)' }
     ]
   },
-  DEFAULT_DIFFICULTY: 'medium',
+  DEFAULT_DIFFICULTY: 'easy',
 
   LEAVE_MESSAGES: {
     approved: (durationDays) =>
