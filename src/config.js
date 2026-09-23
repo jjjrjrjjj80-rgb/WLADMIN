@@ -83,5 +83,14 @@ module.exports = {
     `مرحبًا،\n\n` +
     `لديك تذكرة دعم مفتوحة ولم يصلنا أي رد منك حتى الآن.\n\n` +
     `يرجى الرد على التذكرة خلال (10 دقائق)، وفي حال عدم وجود أي استجابة خلال هذه الفترة، سيتم إغلاق التذكرة تلقائيًا.\n\n` +
-    `شكرًا لتعاونك.`
+    `شكرًا لتعاونك.`,
+
+  // ==== نظام التحذيرات ====
+  WARNING_ROLE_IDS: {
+    1: process.env.WARNING_ROLE_1,
+    2: process.env.WARNING_ROLE_2,
+    3: process.env.WARNING_ROLE_3,
+  },
+  WARNING_ALERT_CHANNEL_ID: process.env.WARNING_ALERT_CHANNEL_ID,
+  TOP_ADMIN_ROLE_IDS: [process.env.SENIOR_ROLE_ID, process.env.OWNER_ROLE_ID].filter(Boolean),
 };
