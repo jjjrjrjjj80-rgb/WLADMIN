@@ -3,6 +3,7 @@ const path = require('path');
 const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
 const config = require('./config');
 const connectDB = require('./database/connect');
+const startWarningExpiryCron = require('./cron/warningExpiry');
 
 const client = new Client({
   intents: [
@@ -36,6 +37,7 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
 (async () => {
   await connectDB();
   await client.login(config.TOKEN);
+  client.once('ready', () => startWarningExpiryCron(client));
 })();
 
 process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err));
